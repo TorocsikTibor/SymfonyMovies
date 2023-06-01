@@ -1,0 +1,42 @@
+{%  extends 'base.html.twig' %}
+
+{% block content %}
+
+{% block body %}
+    <h1>Add movie</h1>
+
+        {{ form_start(movie) }}
+        <div class="my-custom-class-for-errors">
+            {{ form_errors(movie) }}
+        </div>
+
+        <div class="mb-3">
+            <label for="name" class="form-label">Name</label>
+            {{ form_widget(movie.name) }}
+        </div>
+        <div class="mb-3">
+            <label for="year" class="form-label">Year</label>
+            {{ form_widget(movie.year) }}
+        </div>
+        <div class="mb-3">
+            <label for="image" class="form-label">Image</label>
+            {{ form_widget(movie.image) }}
+        </div>
+        <div class="mb-3 form-check">
+            <label for="watched" class="form-label">Watched?</label>
+            {{ form_widget(movie.watched) }}
+        </div>
+        {{ form_end(movie) }}
+
+{#    <img src="{{ asset('uploads/images/sikoly6-6441755b6d1e0.jpg') }}" alt="Girl in a jacket" width="150" height="225">#}
+
+{#    <div class="row">#}
+{#        <iframe style="border-radius:12px"#}
+{#                src="https://open.spotify.com/embed/track/1Xk2J1uGRgfe6o5oqNmzJf?utm_source=generator" width="100%"#}
+{#                height="352" frameBorder="0" allowfullscreen=""#}
+{#                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"#}
+{#                loading="lazy"></iframe>#}
+{#    </div>#}
+    {% endblock %}
+
+{% endblock %}
