@@ -1,17 +1,52 @@
-{%  extends 'base.html.twig' %}
+{% extends 'base.html.twig' %}
 
 {% block content %}
 
- {% for movie in movies %}
-     <ul class="list-group">
-     <li class="list-group-item"><a href="{{ path('editmovie',{id:movie.id}) }}">{{ movie.name }}</a></li>
-     <li class="list-group-item">{{ movie.year }}</li>
-     <li class="list-group-item">{{ movie.watched }}</li>
-     <img src="{{ asset('uploads/images/') ~ movie.image }}" alt="Girl in a jacket" width="150" height="225">
-     <li class="list-group-item"><a class="btn btn-danger" href="{{ path('deletemovie',{id:movie.id}) }}">Delete</a></li>
- {% endfor %}
+    {% for message in app.flashes('error') %}
+        <div class="alert alert-danger">
+            {{ message }}
+        </div>
+    {% endfor %}
 
 
-    <a class="btn btn-primary" href="{{ path('movie') }}">Add movie</a>
+
+
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <a class="btn btn-primary" href="{{ path('movie') }}">Add movie</a>
+        </div>
+        <div class="row justify-content-center">
+            <div class="col md-auto">
+            <a class="btn btn-primary" href="{{ path('movies') }}">Show Movies</a>
+                </div>
+            <div class="col md-auto">
+        <form class="form-group" method="GET" action="{{ path('fetchmovie') }}">
+            <input type="text" class="form-control" name="searchBar">
+            <input class="btn btn-primary" type="submit" value="search">
+        </form>
+                </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row">
+        {% for movie in movies %}
+            <div class="col-sm">
+        <div class="card" style="width: 18rem;">
+            <img src="{{ asset('uploads/images/') ~ movie.image }}" class="card-img-top" alt="...">
+            <div class="card-body">
+                <h5 class="card-title"><a href="{{ path('editmovie',{id:movie.id}) }}">{{ movie.name }}</a></h5>
+                <p class="card-text">{{ movie.releaseDate }}</p>
+                <p class="card-text">{{ movie.watched }}</p>
+                <p class="card-text">{{ movie.voteAverage }}</p>
+                <p class="card-text">{{ movie.voteCount }}</p>
+                <a href="{{ path('deletemovie',{id:movie.id}) }}" class="btn btn-danger">Delete</a>
+            </div>
+        </div>
+            </div>
+        {% endfor %}
+        </div>
+    </div>
 
 {% endblock %}

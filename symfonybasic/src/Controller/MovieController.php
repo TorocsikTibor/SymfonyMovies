@@ -4,45 +4,52 @@ namespace App\Controller;
 
 use App\Entity\Movies;
 use App\Form\MovieType;
-use App\Repository\MoviesRepository;
+use App\Service\GetMoviedbApiContent;
+use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\String\Slugger\SluggerInterface;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class MovieController extends AbstractController
 {
-    public function showMovies(EntityManagerInterface $entityManager)
+    private const MAX_REQUESTED_MOVIES = 2;
+    private EntityManagerInterface $entityManager;
+
+    public function __construct(EntityManagerInterface $entityManager)
+    {
+        $this->entityManager = $entityManager;
+    }
+
+    public function showMovies()
     {
         return $this->render('movies.html.twig', [
-            'movies' => $entityManager->getRepository(Movies::class)->findAll()
+            'movies' => $this->entityManager->getRepository(Movies::class)->findAll()
         ]);
     }
 
-    public function addMovie(Request $request, ManagerRegistry $doctrine, SluggerInterface $slugger)
+    public function addMovie(Request $request, SluggerInterface $slugger)
     {
         $movie = new Movies();
         $form = $this->createForm(MovieType::class, $movie
             , [
-            'action' => $this->generateUrl('movie')
-        ]
+                'action' => $this->generateUrl('movie')
+            ]
         );
 
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid())
-        {
-
-            $save = $doctrine->getManager();
+        if ($form->isSubmitted() && $form->isValid()) {
 
             $imageFile = $form->get('image')->getData();
 
-            if($imageFile) {
+            if ($imageFile) {
                 $originaFilename = pathinfo($imageFile->getClientOriginalName(), PATHINFO_FILENAME);
                 $safeFilename = $slugger->slug($originaFilename);
-                $newFilename = $safeFilename.'-'.uniqid().'.'.$imageFile->guessExtension();
+                $newFilename = $safeFilename . '-' . uniqid() . '.' . $imageFile->guessExtension();
 
                 try {
                     $imageFile->move(
@@ -55,8 +62,8 @@ class MovieController extends AbstractController
                 $movie->setImage($newFilename);
             }
 
-            $save->persist($movie);
-            $save->flush();
+            $this->entityManager->persist($movie);
+            $this->entityManager->flush();
 
             return $this->redirectToRoute('movies');
         }
@@ -66,17 +73,16 @@ class MovieController extends AbstractController
         ]);
     }
 
-    public function editMovie(int $id, Request $request, ManagerRegistry $doctrine)
+    public function editMovie(int $id, Request $request)
     {
-        $em = $doctrine->getManager();
-        $movie = $em->getRepository(Movies::class)->find($id);
+        $movie = $this->entityManager->getRepository(Movies::class)->find($id);
 
         $form = $this->createForm(MovieType::class, $movie);
 
         $form->handleRequest($request);
 
-        if($form->isSubmitted() &&$form->isValid()) {
-            $em->flush();
+        if ($form->isSubmitted() && $form->isValid()) {
+            $this->entityManager->flush();
 
             return $this->redirectToRoute('movies');
         }
@@ -87,16 +93,64 @@ class MovieController extends AbstractController
         ]);
     }
 
-    public function deleteMovie(int $id, Request $request, ManagerRegistry $doctrine)
+    public function deleteMovie(int $id, Request $request)
     {
-        $em = $doctrine->getManager();
-        $movie = $em->getRepository(Movies::class)->find($id);
+        $movie = $this->entityManager->getRepository(Movies::class)->find($id);
 
-        $em->remove($movie);
-        $em->flush();
+        $this->entityManager->remove($movie);
+        $this->entityManager->flush();
 
         return $this->redirectToRoute('movies', [
             'id' => $movie->getId()
         ]);
+    }
+
+
+    // services: request, doctrine (db feltoltes),
+    //entity manager kiszervezés private
+    public function fetchMovieFromApi (Request $request, GetMoviedbApiContent $getMoviedbApiContent)
+    {
+        $searchedMovieName = $request->get('searchBar');
+
+        if ($searchedMovieName === "") {
+            $this->addFlash('error', 'Searchbar is empty!');
+            return $this->redirectToRoute('movies');
+        }
+
+        $foundMovie = $this->entityManager->getRepository(Movies::class)->searchMovie($searchedMovieName);
+
+        if (!empty($foundMovie)) {
+            return $this->render('movies.html.twig', [
+                'movies' => $foundMovie
+            ]);
+        }
+
+        $decodedMovieContent = $getMoviedbApiContent->getSearchedMovie($searchedMovieName);
+
+        $movieObjects = null;
+
+        foreach ($decodedMovieContent->results as $key => $result) // poster_path, release_date, title, vote_average, vote_count
+        {
+            $getMoviedbApiContent->savePoster($result->poster_path);
+
+            $existMovie = $this->entityManager->getRepository(Movies::class)->findOneBy(['name' => $result->title, 'releaseDate' => $result->release_date]);
+
+            if ($existMovie !== null) {
+                continue;
+            }
+
+            $movieObjects[] = Movies::createFromObject($result);
+            $this->entityManager->persist($movieObjects[$key]);
+            $this->entityManager->flush();
+
+            if ($key === self::MAX_REQUESTED_MOVIES) {
+                break;
+            }
+        }
+
+        return $this->render('movies.html.twig', [
+            'movies' => $this->entityManager->getRepository(Movies::class)->findAll()
+        ]);
+
     }
 }
